@@ -7,19 +7,17 @@ import numpy as np
 dataset = load_dataset("conll2003")
 
 # Cargar modelo de análisis de sentimiento
-sentiment_analyzer = pipeline("sentiment-analysis", batch_size=32)  # Procesa en lotes
+ # Procesa en lotes
 
 def add_sentiment_and_save(dataset_split, filename):
     """Añade una columna de sentimiento al dataset y lo guarda en CSV."""
-    
+    sentiment_analyzer = pipeline("sentiment-analysis", batch_size=32) 
     df = dataset_split.to_pandas()  # Convertir a DataFrame
 
     # Reconstruir oraciones agrupando por 'id'
     unique_ids = df["id"].unique()
     sentence_texts = df.groupby("id")["tokens"].apply(lambda x: " ".join(map(str, x))).tolist()  # Convertimos a string
 
-    # Filtrar textos muy largos (máx. 512 caracteres)
-    sentence_texts = [s[:512] for s in sentence_texts]
 
     # Obtener sentimientos de las oraciones en lotes
     try:
