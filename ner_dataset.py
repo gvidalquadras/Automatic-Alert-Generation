@@ -19,26 +19,24 @@ def load_ner_data(file_path: str) -> Tuple[List[List[str]], List[List[str]]]:
     Tuple[List[List[str]], List[List[str]]]: Lists of tokenized texts and their corresponding NER tags.
     """
     try:
-        data: pd.DataFrame = pd.read_csv(file_path)  # Leer el archivo CSV
-       
+        data: pd.DataFrame = pd.read_csv(file_path)
+
         # Función para convertir las listas de texto a listas reales, reemplazando los espacios por comas
         def convert_to_list(x: str) -> List[str]:
             # Reemplazar los espacios por comas y luego evaluar como una lista
             x = x.replace(" ", ",")
             return ast.literal_eval(x)
-       
-        # Convertir las cadenas de texto a listas reales
+
         tokens: List[List[str]] = data['tokens'].apply(convert_to_list).tolist()
         ner_tags: List[List[str]] = data['ner_tags'].apply(convert_to_list).tolist()
-       
-        return tokens, ner_tags  # Devolver los tokens y las etiquetas de NER
+
+        return tokens, ner_tags 
     except FileNotFoundError:
         print(f"{file_path} not found. Please check the file path.")
         return [], []
 
 def collate_fn(batch: List[Tuple[List[str], List[str]]]) -> Tuple[List[List[str]], torch.Tensor, torch.Tensor]:
     tokens, ner_tags = zip(*batch)
-
 
     ner_tags_padded = pad_sequence(
         [torch.tensor(tags, dtype=torch.long) for tags in ner_tags],

@@ -1,141 +1,123 @@
-import torch.optim as optim
-from typing import Dict, Tuple
 import torch
+import os
+import fasttext
+import torch
+import numpy as np
+import torch.nn as nn
 from torch.utils.data import DataLoader
-import torch.nn as nn 
-import fasttext 
-from ner_dataset import load_ner_data, NERDataset, collate_fn
-from ner import BiRNN_CRF_FastText
-from load_data import load_data
-import os 
+from ner_dataset import load_ner_data, collate_fn, NERDataset
+from sklearn.metrics import f1_score
+from ner_doblelstm import NERModel
 
-def train_torch_model(model: torch.nn.Module, train_dataloader: DataLoader,
-                      val_dataloader: DataLoader, optimizer: optim.Optimizer, epochs: int,
-                      print_every: int, patience: int,
-                      device: str = 'cpu') -> Tuple[Dict[int, float], Dict[int, float]]:
-    train_accuracies: Dict[int, float] = {}
-    val_accuracies: Dict[int, float] = {}
-    best_loss: float = float('inf')
-    epochs_no_improve: int = 0
+def train_model(model: nn.Module,
+                dataloader: DataLoader,
+                optimizer: torch.optim.Optimizer,
+                criterion: nn.Module,
+                device: str):
+    
+    running_loss = 0.0
+    all_pred_labels = []
+    all_tags = []
+    
+    model.train()
+    for tokens, tags, lengths in dataloader:
+        
+        tags = tags.to(device)
+        lengths = lengths.to(device)
+        
 
-    model.to(device)
+        # Forward: obtenemos logits de la forma [batch, max_seq_len, num_classes]
+        logits = model(tokens, lengths)
+        
+        # Aplanamos los logits a shape [batch*max_seq_len, num_classes]
+        logits_flat = logits.view(-1, logits.size(-1))
+        pred_labels = logits_flat.argmax(dim=-1)  # [batch*max_seq_len]
+        # Aplanamos las etiquetas a shape [batch*max_seq_len]
+        tags_flat = tags.view(-1)
+      
+        all_pred_labels.extend(pred_labels.cpu().numpy())
+        all_tags.extend(tags_flat.cpu().numpy())
+        loss = criterion(logits_flat, tags_flat)
+        
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
-    for epoch in range(epochs):
-        model.train()
-        total_loss = 0.0
-        for embeds, ner_tags_padded, lengths in train_dataloader:
-            embeds, ner_tags_padded = embeds.to(device), ner_tags_padded.to(device)
-            lengths = lengths.to(device)
+        running_loss += loss.item()
+        f1 = f1_score(all_tags, all_pred_labels, average='macro',zero_division=1, labels=np.arange(9))
 
-            optimizer.zero_grad()
-            emissions, lengths  = model(embeds)
-            loss = model.loss(emissions, ner_tags_padded, lengths)
-            loss.backward()
-            optimizer.step()
+    return (running_loss / len(dataloader)), f1
 
-            total_loss += loss.item()
-
-        model.eval()
-        val_loss = 0.0
-        with torch.no_grad():
-            for embeds, ner_tags_padded, lengths in val_dataloader:
-                embeds, ner_tags_padded = embeds.to(device), ner_tags_padded.to(device)
-                lengths = lengths.to(device)
-
-                emissions, lengths  = model(embeds)
-                loss = model.loss(emissions, ner_tags_padded, lengths)
-                val_loss += loss.item()
-
-        if epoch % print_every == 0 or epoch == epochs - 1:
-            train_accuracy = calculate_accuracy(model, train_dataloader, device)
-            val_accuracy = calculate_accuracy(model, val_dataloader, device)
-
-            train_accuracies[epoch] = train_accuracy
-            val_accuracies[epoch] = val_accuracy
-
-            print(f"Epoch {epoch}/{epochs}, Train Loss: {total_loss / len(train_dataloader):.4f}, "
-                  f"Validation Loss: {val_loss / len(val_dataloader):.4f}, "
-                  f"Train Accuracy: {train_accuracy:.4f}, Validation Accuracy: {val_accuracy:.4f}")
-
-        if val_loss < best_loss:
-            best_loss = val_loss
-            epochs_no_improve = 0
-        else:
-            epochs_no_improve += 1
-
-        if epochs_no_improve >= patience:
-            print(f"Early stopping at epoch: {epoch}")
-            break
-
-    return train_accuracies, val_accuracies
-
-def calculate_accuracy(model: torch.nn.Module, dataloader: DataLoader, device: str) -> float:
-    correct = 0
-    total = 0
-    model.to(device)
+def evaluate_model(model: nn.Module,
+                   dataloader: DataLoader,
+                   criterion: nn.Module,
+                   device: str):
     model.eval()
+    val_loss = 0.0
+    all_pred_labels = []
+    all_tags = []
 
     with torch.no_grad():
-        for embeds, ner_tags_padded, lengths in dataloader:
-            embeds, ner_tags_padded = embeds.to(device), ner_tags_padded.to(device)
+        for tokens, tags, lengths in dataloader:
+
+            tags = tags.to(device)
             lengths = lengths.to(device)
-            emissions, lengths = model(embeds)
+            
+            logits = model(tokens, lengths)
+            logits_flat = logits.view(-1, logits.size(-1))
+            tags_flat = tags.view(-1)
+            
+            pred_labels = logits_flat.argmax(dim=-1)  # [batch*max_seq_len]
 
+            # Imprimimos las predicciones y las etiquetas reales
+            #pred_labels = pred_labels.view(tags.size())  # Volvemos a la forma original [batch, seq_len]
+            all_pred_labels.extend(pred_labels.cpu().numpy())
+            all_tags.extend(tags_flat.cpu().numpy())
 
-            predictions = model.predict(emissions, lengths)
-            print(predictions)
-            print(ner_tags_padded)
+            loss = criterion(logits_flat, tags_flat)
+            val_loss += loss.item()
+    f1 = f1_score(all_tags, all_pred_labels, average='macro', labels=np.arange(9))
 
-            for i in range(len(ner_tags_padded)):
-                for j in range(len(ner_tags_padded[i])):
-                    if ner_tags_padded[i][j] == predictions[i][j]:
-                        correct += 1
-                    total += 1
+    return val_loss / len(dataloader), f1
 
-    accuracy = correct / total
-    return accuracy
 
 def main():
-    train_file_path = 'conll2003_train.csv'
-    validation_file_path = 'conll2003_validation.csv'
-    fasttext_model = fasttext.load_model("cc.en.300.bin")
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    '''    if not os.path.isfile(train_file_path):    
-        print('LOADING DATA')
-        load_data()
-        '''
-
-    train_tokens, train_ner_tags = load_ner_data(train_file_path)
-    validation_tokens, validation_ner_tags = load_ner_data(validation_file_path)
+    #Cargar modelo FastText (asegúrate de tener el archivo correcto)
+    embedding_model = fasttext.load_model("cc.en.300.bin")
+    
+    # Cargar datos de entrenamiento y validación
+    train_tokens, train_ner_tags = load_ner_data("data/conll2003_train.csv")
+    validation_tokens, validation_ner_tags = load_ner_data("data/conll2003_validation.csv")  
 
     train_dataset = NERDataset(train_tokens, train_ner_tags)
     validation_dataset = NERDataset(validation_tokens, validation_ner_tags)
-
-    train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True, collate_fn=lambda x: collate_fn(x, fasttext_model))
-    validation_loader = DataLoader(validation_dataset, batch_size=2, shuffle=False, collate_fn=lambda x: collate_fn(x, fasttext_model))
-
-    tagset_size = 9
-    embedding_dim = 300
+    
     hidden_dim = 256
-
-    model = BiRNN_CRF_FastText(fasttext_model=fasttext_model, tagset_size=tagset_size, hidden_dim=hidden_dim)
-
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    num_classes = 9  
+    lr = 0.001
+    weight_decay = 1e-4
     epochs = 10
-    print_every = 1
-    patience = 3
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    batch_size = 16
+    
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+    val_loader = DataLoader(validation_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+    
+    model = NERModel(embedding_model, hidden_dim, num_classes).to(device)
+    
+    # Definimos el optimizador y la función de pérdida
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    criterion = nn.CrossEntropyLoss(ignore_index=-100)  
 
-    train_accuracies, val_accuracies = train_torch_model(
-        model=model,
-        train_dataloader=train_loader,
-        val_dataloader=validation_loader,
-        optimizer=optimizer,
-        epochs=epochs,
-        print_every=print_every,
-        patience=patience,
-        device=device
-    )
+    for epoch in range(epochs):
+        train_loss, f1_train = train_model(model, train_loader, optimizer, criterion, device)
+        val_loss, f1_val = evaluate_model(model, val_loader, criterion, device)  
+        
+        print(f"Epoch {epoch+1}/{epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Train F1: {f1_train:.4f}, Val F1: {f1_val:.4f}")
 
-if __name__ == "__main__": 
+    os.makedirs("models", exist_ok=True)
+    torch.save(model.state_dict(), "models/ner_model2.pth")  
+    
+if __name__ == "__main__":
     main()
