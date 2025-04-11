@@ -1,5 +1,6 @@
 conll2003_test.csv
 conll2003_train.csv
 conll2003_validation.csv
+cc.en.300.bin
 
 myenv/

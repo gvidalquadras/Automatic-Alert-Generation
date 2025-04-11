@@ -13,7 +13,7 @@ def main():
     embedding_model = fasttext.load_model("cc.en.300.bin")
     # Cargar el modelo entrenado (suponiendo que lo hayas guardado previamente)
     model = MyModel(embedding_model, hidden_dim, num_classes).to(device)  # Inicializa el modelo antes de cargar los pesos
-    model.load_state_dict(torch.load("ner_model.pth"))
+    model.load_state_dict(torch.load("models/ner_model.pth"))
 
     # Cargar el conjunto de datos de prueba (suponiendo que ya lo hayas cargado)
     test_tokens, test_ner_tags = load_ner_data("conll2003_test.csv")

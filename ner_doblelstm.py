@@ -1,4 +1,5 @@
 import torch
+import os
 import fasttext
 from typing import List, Tuple  
 import torch
@@ -36,8 +37,6 @@ class MyModel(torch.nn.Module):
         return logits
     
 
-
- 
 def train_model(model: nn.Module,
                 dataloader: DataLoader,
                 optimizer: torch.optim.Optimizer,
@@ -74,8 +73,8 @@ def train_model(model: nn.Module,
 
         running_loss += loss.item()
         f1 = f1_score(all_tags, all_pred_labels, average='macro',zero_division=1, labels=np.arange(9))
-    print('F1 train:', f1)
-    return running_loss / len(dataloader)
+
+    return running_loss / len(dataloader), f1
 
 # Función de validación (similar al entrenamiento, pero sin gradientes)
 def evaluate_model(model: nn.Module,
@@ -107,27 +106,22 @@ def evaluate_model(model: nn.Module,
             loss = criterion(logits_flat, tags_flat)
             running_loss += loss.item()
     f1 = f1_score(all_tags, all_pred_labels, average='macro', labels=np.arange(9))
-    print('F1:', f1)
-    return running_loss / len(dataloader)
+
+    return running_loss / len(dataloader), f1
 
 # Función principal para entrenar y evaluar
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    # Ejemplo: cargar modelo FastText (asegúrate de tener el archivo correcto)
+    #Cargar modelo FastText (asegúrate de tener el archivo correcto)
     embedding_model = fasttext.load_model("cc.en.300.bin")
     
-    # Supongamos que tienes datos ya cargados:
-    # tokens_list: List[List[str]]
-    # ner_tags_list: List[List[int]]
-    # Por ejemplo:
-    train_tokens, train_ner_tags = load_ner_data("conll2003_train.csv")
-    validation_tokens, validation_ner_tags = load_ner_data("conll2003_validation.csv")  
-
+    # Cargar datos de entrenamiento y validación
+    train_tokens, train_ner_tags = load_ner_data("data/conll2003_train.csv")
+    validation_tokens, validation_ner_tags = load_ner_data("data/conll2003_validation.csv")  
 
     train_dataset = NERDataset(train_tokens, train_ner_tags)
     validation_dataset = NERDataset(validation_tokens, validation_ner_tags)
-    
     
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, collate_fn=collate_fn)
     val_loader = DataLoader(validation_dataset, batch_size=16, shuffle=True, collate_fn=collate_fn)
@@ -142,11 +136,12 @@ def main():
     
     epochs = 10
     for epoch in range(epochs):
-        train_loss = train_model(model, train_loader, optimizer, criterion, device)
-        val_loss = evaluate_model(model, val_loader, criterion, device)  # Por ejemplo, usando el mismo train_loader para validación
+        train_loss, f1_train = train_model(model, train_loader, optimizer, criterion, device)
+        val_loss, f1_val = evaluate_model(model, val_loader, criterion, device)  # Por ejemplo, usando el mismo train_loader para validación
         
-        print(f"Epoch {epoch+1}/{epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
+        print(f"Epoch {epoch+1}/{epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Train F1: {f1_train:.4f}, Val F1: {f1_val:.4f}")
 
+    os.makedirs("models", exist_ok=True)
     torch.save(model.state_dict(), "models/ner_model.pth")  # Guardamos el modelo entrenado
     
 if __name__ == "__main__":
