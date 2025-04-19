@@ -1,72 +1,46 @@
 import torch
-import torch.nn as nn
-import fasttext
-from torchcrf import CRF
-from typing import Any, Tuple 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-class BiRNN_CRF_FastText(nn.Module):
-    def __init__(self, fasttext_model: Any, hidden_dim: int, tagset_size: int):
-        super(BiRNN_CRF_FastText, self).__init__()
-
-        self.fasttext_model = fasttext_model
-        self.embedding_dim = self.fasttext_model.get_dimension()
-
-        # LSTM layer: Bidirectional LSTM with hidden size divided by 2 (for both directions)
-        self.lstm = nn.LSTM(
-            input_size=self.embedding_dim,
-            hidden_size=hidden_dim // 2,
-            num_layers=1,
-            bidirectional=True,
-            batch_first=True
-        )
-
-        # Linear layer to map the LSTM output to tag space
-        self.hidden2tag = nn.Linear(hidden_dim, tagset_size)
-        
-        # CRF layer for sequence labeling
-        self.crf = CRF(tagset_size)
-
-    def embed_tokens(self, token_lists):
-        batch_embeddings = []
-        lengths = []
-
-        for tokens in token_lists:
-            # Convert each token to its FastText embedding
-            vecs = [torch.tensor((tok)).to(device) for tok in tokens]
-            batch_embeddings.append(torch.stack(vecs))
-            lengths.append(len(tokens))
-
-        # Padding the sequences to the same length
-        padded = nn.utils.rnn.pad_sequence(batch_embeddings, batch_first=True, padding_value=0.0)
-        lengths = torch.tensor(lengths, dtype=torch.long)
-
-        # Return the padded embeddings and lengths (both on the correct device)
-        return padded.to(device), lengths.to(device)
-
-    def forward(self, token_lists):
-        # token_lists is a List[List[str]]
-        embeddings, lengths = self.embed_tokens(token_lists)
+from torch.nn.utils.rnn import pad_sequence
+from torch.utils.data import Dataset, DataLoader
+from typing import List, Tuple, Any
+from sklearn.metrics import f1_score
+import numpy as np
 
 
+class NERDataset(Dataset):
+    def __init__(self, tokens: List[List[str]], ner_tags: List[List[int]]):
+        self.tokens = tokens
+        self.ner_tags = ner_tags
 
-        # Pack the sequences to handle varying lengths
-        packed = nn.utils.rnn.pack_padded_sequence(embeddings, lengths.cpu(), batch_first=True, enforce_sorted=False)
-        lstm_out, _ = self.lstm(packed)
-        
-        # Unpack the sequences
-        output, _ = nn.utils.rnn.pad_packed_sequence(lstm_out, batch_first=True)
+    def __len__(self):
+        return len(self.tokens)
 
-        # Get emissions for CRF
-        emissions = self.hidden2tag(output)
-        return emissions, lengths
+    def __getitem__(self, idx):
+        return self.tokens[idx], self.ner_tags[idx]
 
-    def loss(self, emissions, tags, lengths):
-        # Create a mask to prevent padding tokens from affecting loss
-        mask = torch.arange(tags.size(1), device=tags.device)[None, :] < lengths[:, None]
-        return -self.crf(emissions, tags, mask=mask)
 
-    def predict(self, emissions, lengths):
-        # Create a mask for prediction as well
-        mask = torch.arange(emissions.size(1), device=emissions.device)[None, :] < lengths[:, None]
-        return self.crf.decode(emissions, mask=mask)
+class NERModel(torch.nn.Module):
+    def __init__(self, embedding_model, hidden_dim, num_classes):
+        super(NERModel, self).__init__()
+        self.embedding_model = embedding_model  # FastText por ejemplo
+        self.hidden_dim = hidden_dim
+
+        self.lstm = torch.nn.LSTM(input_size=300, hidden_size=hidden_dim, batch_first=True, bidirectional=True)
+        self.linear = torch.nn.Linear(hidden_dim * 2, num_classes)
+
+    def forward(self, tokens: List[List[str]], lengths: torch.Tensor):
+        # Convertimos listas de palabras en embeddings usando FastText
+        embedded = []
+        for sent in tokens:
+            vectors = np.array([self.embedding_model.get_word_vector(word) for word in sent])
+            embedded.append(torch.tensor(vectors, dtype=torch.float32, device=lengths.device))
+
+        padded = pad_sequence(embedded, batch_first=True, padding_value=0.0)
+
+        packed = torch.nn.utils.rnn.pack_padded_sequence(padded, lengths.cpu(), batch_first=True, enforce_sorted=False)
+        outputs, _ = self.lstm(packed)
+        outputs, _ = torch.nn.utils.rnn.pad_packed_sequence(outputs, batch_first=True)
+
+        logits = self.linear(outputs)
+        return logits
+    
+

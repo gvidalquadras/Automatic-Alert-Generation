@@ -53,10 +53,9 @@ def split_and_save(df, save_dir="data/"):
     print(f"   Val:   {len(val)} ejemplos")
     print(f"   Test:  {len(test)} ejemplos")
 
-# ===============================
-# Ejecutar todo
-# ===============================
-if __name__ == "__main__":
+def main():
     download_and_extract_sentiment140()
     df = load_and_prepare()
     split_and_save(df)
+if __name__ == "__main__":
+    main()
