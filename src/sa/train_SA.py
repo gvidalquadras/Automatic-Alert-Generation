@@ -7,8 +7,9 @@ import pandas as pd
 import numpy as np
 import fasttext
 from SA import SADataset, SentimentClassifier
-
-
+# ========================
+# Collate function
+# ========================
 def collate_fn(batch):
     texts, labels = zip(*batch)
     lengths = torch.tensor([len(seq) for seq in texts])
@@ -16,10 +17,16 @@ def collate_fn(batch):
     labels = torch.tensor(labels).unsqueeze(1)
     return padded_texts, lengths, labels
 
+# ========================
+# Funciones de carga
+# ========================
 def load_sentiment140_csv(path):
     df = pd.read_csv(path)
     return df["text"].tolist(), df["label"].tolist()
 
+# ========================
+# Entrenamiento y evaluación
+# ========================
 def train(model, loader, optimizer, criterion, device):
     model.train()
     total_loss, correct, total = 0, 0, 0
@@ -50,7 +57,11 @@ def evaluate(model, loader, criterion, device):
             total += y.size(0)
     return total_loss / len(loader), correct / total
 
-def main():
+# ========================
+# Main script
+# ========================
+if __name__ == "__main__":
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 
     print("Loading FastText...")
@@ -75,6 +86,7 @@ def main():
 
     print("Starting training...")
     for epoch in range(5):
+        print(epoch)
         train_loss, train_acc = train(model, train_loader, optimizer, criterion, device)
         val_loss, val_acc = evaluate(model, val_loader, criterion, device)
         print(f"Epoch {epoch+1} | Train Loss: {train_loss:.4f} Acc: {train_acc:.4f} | Val Loss: {val_loss:.4f} Acc: {val_acc:.4f}")
@@ -84,12 +96,6 @@ def main():
     print(f"Test Loss: {test_loss:.4f} | Test Accuracy: {test_acc:.4f}")
 
     # Guardar el modelo completo
-    os.makedirs("models", exist_ok=True)
-    model_path = "models/SA_model.pt"
+    model_path = "sentiment140_model_full.pt"
     torch.save(model, model_path)
     print(f"\n Modelo completo guardado en: {model_path}")
-
-    
-if __name__ == "__main__":
-    main()
-    
