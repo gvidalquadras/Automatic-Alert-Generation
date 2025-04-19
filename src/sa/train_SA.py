@@ -8,6 +8,7 @@ import numpy as np
 import fasttext
 from SA import SADataset, SentimentClassifier
 import os
+from utils import set_seed
 
 def collate_fn(batch):
     texts, labels = zip(*batch)
@@ -51,6 +52,7 @@ def evaluate(model, loader, criterion, device):
     return total_loss / len(loader), correct / total
 
 def main():
+    set_seed(42)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print("Loading FastText...")
@@ -84,11 +86,11 @@ def main():
     test_loss, test_acc = evaluate(model, test_loader, criterion, device)
     print(f"Test Loss: {test_loss:.4f} | Test Accuracy: {test_acc:.4f}")
 
-    # Save the model
+    # Guardar el modelo completo
     os.makedirs("models", exist_ok=True)
     model_path = "models/SA_model.pt"
     torch.save(model, model_path)
-    print(f"\n Modelo completo guardado en: {model_path}")
+    print(f"\n SA model saved in: {model_path}")
 
     
 if __name__ == "__main__":

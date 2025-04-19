@@ -11,6 +11,7 @@ from typing import List, Tuple
 from torch.utils.data import DataLoader
 from ner import NERDataset, NERModel
 from sklearn.metrics import f1_score
+from utils import set_seed
 
 def load_ner_data(file_path: str) -> Tuple[List[List[str]], List[List[str]]]:
     """
@@ -124,7 +125,8 @@ def evaluate_model(model: nn.Module,
 
 
 def main():
-    device = torch.device('cuda:3' if torch.cuda.is_available() else 'cpu')
+    set_seed(42)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     print("Loading FastText...")
     embedding_model = fasttext.load_model("cc.en.300.bin")
@@ -157,11 +159,12 @@ def main():
         train_loss, f1_train = train_model(model, train_loader, optimizer, criterion, device)
         val_loss, f1_val = evaluate_model(model, val_loader, criterion, device)  
         
-        print(f"Epoch {epoch+1}/{epochs} | Train Loss: {train_loss:.4f}, F1: {f1_train:.4f}| Val Loss: {val_loss:.4f}, F1: {f1_val:.4f}")
+        print(f"Epoch {epoch+1}/{epochs}| Train Loss: {train_loss:.4f}, F1: {f1_train:.4f}| Val Loss: {val_loss:.4f}, F1: {f1_val:.4f}")
         
 
     os.makedirs("models", exist_ok=True)
-    torch.save(model.state_dict(), "models/ner_model.pth")  
+    torch.save(model.state_dict(), "models/ner_model.pth") 
+    print("NER model saved in: ", "models/ner_model.pth")
     
 if __name__ == "__main__":
     main()
