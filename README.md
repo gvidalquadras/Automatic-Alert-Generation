@@ -27,6 +27,16 @@ gunzip cc.en.300.bin.gz
 python -m spacy download en_core_web_sm
 ```
 
+If you get the error
+
+``ValueError: numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject``
+
+Run this command: 
+
+```
+pip install --upgrade numpy spacy thinc
+```
+
 ### 3. Install Python Dependencies
 Make sure you are using a virtual environment. Then run:
 ```
