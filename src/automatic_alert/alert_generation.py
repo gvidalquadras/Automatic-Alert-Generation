@@ -152,10 +152,11 @@ def generate_alert(tweet):
     # Extract NER tags
     tokens = tweet.split()
     ner_tags = predict_ner.predict_ner(ner_model, tokens, device, ft_model, predict_ner.idx2label)
-    print(ner_tags)
+    print("Ner tags: ", ner_tags)
 
     # Extract sentiment
     sentiment_label, sentiment_prob = predict_sa.predict_sa(tweet, sa_model, ft_model, device)
+    print("Sentiment:", "Positive" if sentiment_label == 1 else "Negative")
     
     # Extract SVO
     subject, verb, obj = extract_svo(tweet, ner_tags)
@@ -170,13 +171,13 @@ def generate_alert(tweet):
     return alert_message
 
 if __name__ == "__main__":
-    # Example tweet
-    tweet = "Taylor Swift canceled her concert in London."
-    
+    # Example input
+    tweet = "Taylor Swift canceled her concert in London." # CHANGE THIS TO CUSTOM INPUT
+    print("Input: ", tweet)
+
     # Generate alert
     alert = generate_alert(tweet)
 
-    print(tweet)
     print("Generated Alert:")
     print(alert)
 
