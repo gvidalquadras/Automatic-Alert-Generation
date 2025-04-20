@@ -3,23 +3,12 @@ import fasttext
 from src.sa.SA import SentimentClassifier
 import numpy as np
 
-
-ft_model = fasttext.load_model("cc.en.300.bin")
-
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Elegir dispositivo
+device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 
 
-model = torch.load("models/SA_model.pt", map_location=device, weights_only=False)
-
-model.eval()
-text = "I love this movie, it's amazing!"
-label, prob = model.predict(text, ft_model, device)
-
-print(f"Predicción: {'Positivo' if label == 1 else 'Negativo'}")
-print(f"Probabilidad: {prob:.4f}")
-
-def predict_sa(text: str, model: SentimentClassifier, embedding_model: fasttext.FastText._FastText, device: torch.device) -> str:
+# Función de predicción
+def predict_sa(text: str, model: SentimentClassifier, embedding_model: fasttext.FastText._FastText, device: torch.device):
     """
     Predict the sentiment of a given text using the sentiment analysis model.
 
@@ -30,8 +19,8 @@ def predict_sa(text: str, model: SentimentClassifier, embedding_model: fasttext.
         device (torch.device): The device to run the model on.
 
     Returns:
-        str: The predicted sentiment label (1 for positive, 0 for negative).
+        int: The predicted sentiment label (1 for positive, 0 for negative).
         float: The probability of the predicted sentiment.
     """
-    label, prob = model.predict(text, ft_model, device)
+    label, prob = model.predict(text, embedding_model, device)
     return label, prob
