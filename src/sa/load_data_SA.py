@@ -6,7 +6,13 @@ from io import BytesIO
 from sklearn.model_selection import train_test_split
 
 
-def download_and_extract_sentiment140(save_dir="data/"):
+def download_and_extract_sentiment140(save_dir: str = "data/") -> None:
+    """
+    Downloads and extracts the Sentiment140 dataset ZIP file into a given directory.
+
+    Args:
+        save_dir (str): Directory where the data should be saved. Defaults to "data/".
+    """
     os.makedirs(save_dir, exist_ok=True)
     url = "http://cs.stanford.edu/people/alecmgo/trainingandtestdata.zip"
     print("Downloading Sentiment140...")
@@ -14,7 +20,17 @@ def download_and_extract_sentiment140(save_dir="data/"):
     with zipfile.ZipFile(BytesIO(response.content)) as z:
         z.extractall(save_dir)
 
-def load_and_prepare(path="data/training.1600000.processed.noemoticon.csv"):
+def load_and_prepare(path:str="data/training.1600000.processed.noemoticon.csv")-> pd.DataFrame:
+    """
+    Loads the original Sentiment140 CSV file, filters for binary sentiment,
+    maps the labels to {0,1}, and balances the dataset.
+
+    Args:
+        path (str): Path to the downloaded CSV file.
+
+    Returns:
+        pd.DataFrame: Balanced DataFrame with columns ["text", "label"].
+    """
     colnames = ["target", "ids", "date", "flag", "user", "text"]
     df = pd.read_csv(path, encoding="latin-1", names=colnames)
 
@@ -31,7 +47,14 @@ def load_and_prepare(path="data/training.1600000.processed.noemoticon.csv"):
     return balanced_df
 
 
-def split_and_save(df, save_dir="data/"):
+def split_and_save(df: pd.DataFrame, save_dir: str="data/")-> None:
+    """
+    Splits the dataset into train, validation, and test sets (80/10/10) and saves them as CSVs.
+
+    Args:
+        df (pd.DataFrame): The balanced dataset to split.
+        save_dir (str): Directory where the CSV files will be saved.
+    """
     # 80/10/10 split
     train_val, test = train_test_split(df, test_size=0.1, stratify=df["label"], random_state=42)
     train, val = train_test_split(train_val, test_size=0.1111, stratify=train_val["label"], random_state=42)

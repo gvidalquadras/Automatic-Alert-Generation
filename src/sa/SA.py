@@ -34,13 +34,13 @@ class SADataset(Dataset):
         This method returns the length of the dataset.
 
         Returns:
-            int: Total number of text-label pairs.
+            int: Total number of sentences in the dataset.
         """
         return len(self.texts)
 
     def __getitem__(self, idx:int):
         """
-        Returns the embedding tensor and label tensor for the sample at idx.
+        Returns the embedding tensor and label tensor for the sample at the given index.
 
         Args:
             idx (int): Index of the sample to retrieve.
@@ -71,7 +71,7 @@ class SentimentClassifier(nn.Module):
     """
     def __init__(self, embedding_dim=300, hidden_dim=128, dropout_prob=0.5):
         """
-        Initializes the SentimentClassifier model.
+        Constructor of the SentimentClassifier model.
 
         Args:
             embedding_dim (int): Dimensionality of input word embeddings.

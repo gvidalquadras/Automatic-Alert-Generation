@@ -3,13 +3,13 @@ import fasttext
 from src.sa.SA import SentimentClassifier
 import numpy as np
 
-# Cargar FastText
+
 ft_model = fasttext.load_model("cc.en.300.bin")
 
-# Elegir dispositivo (igual que antes)
-device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 
-# Cargar el modelo completo
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
 model = torch.load("models/SA_model.pt", map_location=device, weights_only=False)
 
 model.eval()

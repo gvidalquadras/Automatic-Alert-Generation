@@ -40,6 +40,21 @@ def load_ner_data(file_path: str) -> Tuple[List[List[str]], List[List[str]]]:
         return [], []
 
 def collate_fn(batch: List[Tuple[List[str], List[str]]]) -> Tuple[List[List[str]], torch.Tensor, torch.Tensor]:
+    """
+    Collate function for NER DataLoader.
+
+    Pads the tag sequences and computes the lengths of token sequences.
+    Tokens are returned as-is (for use with embedding lookup outside this function).
+
+    Args:
+        batch (List[Tuple[List[str], List[int]]]): List of (tokens, ner_tags) pairs.
+
+    Returns:
+        Tuple:
+            - tokens (List[List[str]]): List of token sequences.
+            - ner_tags_padded (Tensor): Padded tensor of tag indices [batch_size, max_seq_len].
+            - lengths (Tensor): Tensor of original sequence lengths [batch_size].
+    """
     tokens, ner_tags = zip(*batch)
 
     ner_tags_padded = pad_sequence(
@@ -58,6 +73,24 @@ def train_model(model: nn.Module,
                 optimizer: torch.optim.Optimizer,
                 criterion: nn.Module,
                 device: str):
+    """
+    Trains the NER model for one epoch.
+
+    Performs forward, loss computation, backpropagation, optimizer step,
+    and computes macro F1 score on training predictions.
+
+    Args:
+        model (nn.Module): The NER model.
+        dataloader (DataLoader): Training data loader.
+        optimizer (torch.optim.Optimizer): Optimizer.
+        criterion (nn.Module): Loss function.
+        device (str): device.
+
+    Returns:
+        Tuple[float, float]:
+            - Average training loss.
+            - Macro F1 score across the epoch.
+    """
     
     running_loss = 0.0
     all_pred_labels = []
@@ -70,13 +103,12 @@ def train_model(model: nn.Module,
         lengths = lengths.to(device)
         
 
-        # Forward: obtenemos logits de la forma [batch, max_seq_len, num_classes]
+        # Forward: logits of dimensions [batch, max_seq_len, num_classes]
         logits = model(tokens, lengths)
-        
-        # Aplanamos los logits a shape [batch*max_seq_len, num_classes]
+
         logits_flat = logits.view(-1, logits.size(-1))
-        pred_labels = logits_flat.argmax(dim=-1)  # [batch*max_seq_len]
-        # Aplanamos las etiquetas a shape [batch*max_seq_len]
+        pred_labels = logits_flat.argmax(dim=-1) 
+
         tags_flat = tags.view(-1)
       
         all_pred_labels.extend(pred_labels.cpu().numpy())
@@ -96,6 +128,23 @@ def evaluate_model(model: nn.Module,
                    dataloader: DataLoader,
                    criterion: nn.Module,
                    device: str):
+    
+    """
+    Evaluates the NER model on validation or test data.
+
+    Computes average loss and macro F1 score over all batches.
+
+    Args:
+        model (nn.Module): The NER model.
+        dataloader (DataLoader): Validation or test data loader.
+        criterion (nn.Module): Loss function.
+        device (str): 'cpu' or 'cuda'.
+
+    Returns:
+        Tuple[float, float]:
+            - Average evaluation loss.
+            - Macro F1 score.
+    """
     model.eval()
     val_loss = 0.0
     all_pred_labels = []
