@@ -18,6 +18,7 @@ gunzip cc.en.300.bin.gz
 If wget is not available, run 
 ```
 curl -o cc.en.300.bin.gz https://dl.fbaipublicfiles.com/fasttext/vectors-crawl/cc.en.300.bin.gz
+gunzip cc.en.300.bin.gz
 ```
 
 ### 2. Download spaCy Language Model
