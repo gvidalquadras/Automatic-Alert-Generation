@@ -1,7 +1,7 @@
 import torch
 import fasttext
 import numpy as np
-from ner import NERModel  # Asegúrate de que esta ruta sea correcta
+from src.ner.ner import NERModel  
 from torch.nn.utils.rnn import pad_sequence
 from typing import List
 
