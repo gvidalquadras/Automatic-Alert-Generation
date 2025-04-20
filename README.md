@@ -37,6 +37,8 @@ Run this command:
 pip install --upgrade numpy spacy thinc
 ```
 
+Then, try to download spacy again.
+
 ### 3. Install Python Dependencies
 Make sure you are using a virtual environment. Then run:
 ```
