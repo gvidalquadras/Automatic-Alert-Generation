@@ -1,27 +1,81 @@
 import torch
-import torch.nn as nn
+from torch import Tensor, nn
+from torch.nn import Module
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 from torch.nn.utils.rnn import pad_sequence
 import pandas as pd
 import numpy as np
-import fasttext
-from SA import SADataset, SentimentClassifier
 import os
-from utils import set_seed
+from typing import List, Tuple, Any
+import fasttext
+from src.sa.SA import SADataset, SentimentClassifier
 
-def collate_fn(batch):
+from src.sa.load_data_SA import load_data 
+from src.utils import set_seed
+
+
+def collate_fn(batch: List[Tuple[Tensor, int]]) -> Tuple[Tensor, Tensor, Tensor]:
+    """
+    Custom collate function for the sentiment analysis DataLoader.
+    Extracts the text tensor and labels and pads the text sequences to equal length.
+
+    Args:
+        batch (List[Tuple[Tensor, int]]): List of (embedded_text, label) pairs.
+
+    Returns:
+        Tuple[Tensor, Tensor, Tensor]:
+            - padded_texts: Padded text tensor of shape (batch_size, max_length).
+            - lengths: Tensor of original sequence lengths, shape (batch_size,).
+            - labels: Tensor of labels, shape (batch_size, 1).
+    """
+    
     texts, labels = zip(*batch)
     lengths = torch.tensor([len(seq) for seq in texts])
     padded_texts = pad_sequence(texts, batch_first=True)
     labels = torch.tensor(labels).unsqueeze(1)
     return padded_texts, lengths, labels
 
-def load_sentiment140_csv(path):
+def load_sentiment140_csv(path:str)-> Tuple[List[str], List[int]]:
+    """
+    Loads the Sentiment140 dataset from a CSV file.
+
+    Args:
+        path (str): Path to the CSV file.
+
+    Returns:
+        Tuple[List[str], List[int]]:
+            - A list of text samples.
+            - A list of corresponding sentiment labels.
+    """
     df = pd.read_csv(path)
     return df["text"].tolist(), df["label"].tolist()
 
-def train(model, loader, optimizer, criterion, device):
+
+def train(
+    model: Module,
+    loader: DataLoader,
+    optimizer: torch.optim.Optimizer,
+    criterion: Module,
+    device: torch.device
+    ) -> Tuple[float, float]:
+    """
+    Trains the sentiment analysis model for one full epoch.
+
+    Performs forward pass, computes the loss, backpropagation, and updates the model's parameters.
+
+    Args:
+        model (nn.Module): The PyTorch model.
+        loader (DataLoader): DataLoader for the training data.
+        optimizer (torch.optim.Optimizer): Optimizer used for training.
+        criterion (nn.Module): Loss function.
+        device (torch.device): Device to run the training
+
+    Returns:
+        Tuple[float, float]:
+            - Average loss over the epoch.
+            - Average accuracy over the epoch.
+    """
     model.train()
     total_loss, correct, total = 0, 0, 0
     for x, lengths, y in loader:
@@ -37,7 +91,29 @@ def train(model, loader, optimizer, criterion, device):
         total += y.size(0)
     return total_loss / len(loader), correct / total
 
-def evaluate(model, loader, criterion, device):
+
+def evaluate(
+    model: Module,
+    loader: DataLoader,
+    criterion: Module,
+    device: torch.device
+    ) -> Tuple[float, float]:
+    """
+    Evaluates the sentiment analysis model on validation or test data.
+
+    Computes the loss and accuracy without updating model parameters.
+
+    Args:
+        model (nn.Module): The PyTorch model.
+        loader (DataLoader): DataLoader for the evaluation data.
+        criterion (nn.Module): Loss function.
+        device (torch.device): Device to run the evaluation on ('cpu' or 'cuda').
+
+    Returns:
+        Tuple[float, float]:
+            - Average loss over the evaluation set.
+            - Average accuracy over the evaluation set.
+    """
     model.eval()
     total_loss, correct, total = 0, 0, 0
     with torch.no_grad():
@@ -52,6 +128,9 @@ def evaluate(model, loader, criterion, device):
     return total_loss / len(loader), correct / total
 
 def main():
+    """
+    This function is the main program for training.
+    """
     set_seed(42)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -59,6 +138,7 @@ def main():
     ft_model = fasttext.load_model("cc.en.300.bin")
 
     print("Loading Sentiment140...")
+    load_data()
     train_texts, train_labels = load_sentiment140_csv("data/sentiment140_train.csv")
     val_texts, val_labels = load_sentiment140_csv("data/sentiment140_validation.csv")
     test_texts, test_labels = load_sentiment140_csv("data/sentiment140_test.csv")
@@ -86,10 +166,10 @@ def main():
     test_loss, test_acc = evaluate(model, test_loader, criterion, device)
     print(f"Test Loss: {test_loss:.4f} | Test Accuracy: {test_acc:.4f}")
 
-    # Guardar el modelo completo
+    # Saving the model
     os.makedirs("models", exist_ok=True)
-    model_path = "models/SA_model.pt"
-    torch.save(model, model_path)
+    model_path = "models/SA_model.pth"
+    torch.save(model.state_dict(), model_path)
     print(f"\n SA model saved in: {model_path}")
 
     

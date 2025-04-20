@@ -2,13 +2,18 @@ from sklearn.metrics import f1_score
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-# from utils import set_seed
-from ner import NERDataset, NERModel
-from train_NER import evaluate_model,collate_fn, load_ner_data
 import fasttext
 
+from src.ner.ner import NERDataset, NERModel
+from src.ner.train_NER import evaluate_model,collate_fn, load_ner_data
+from src.utils import set_seed
+
 def main():
-    # set_seed(42)
+    """"
+    This is the main function for evaluating test data.
+    """
+    
+    set_seed(42)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     hidden_dim = 256
     num_classes = 9 

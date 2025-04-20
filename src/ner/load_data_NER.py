@@ -13,7 +13,7 @@ def save_dataset_split(split, filename):
     print(f"Guardado: {filename}")
 
 
-def main():
+def load_data():
     # Guardar los tres splits
     save_dataset_split(dataset["train"], "data/conll2003_train.csv")
     save_dataset_split(dataset["validation"], "data/conll2003_validation.csv")
@@ -22,4 +22,4 @@ def main():
     print("Todos los archivos fueron cargados y guardados correctamente.")
 
 if __name__ == "__main__":
-    main()
+    load_data()

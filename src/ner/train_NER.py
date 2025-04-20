@@ -8,10 +8,11 @@ import ast
 import torch.nn as nn
 from torch.nn.utils.rnn import pad_sequence
 from typing import List, Tuple
-from torch.utils.data import DataLoader
-from ner import NERDataset, NERModel
 from sklearn.metrics import f1_score
-from utils import set_seed
+from torch.utils.data import DataLoader
+from src.ner.ner import NERDataset, NERModel
+from src.ner.load_data_NER import load_data
+from src.utils import set_seed
 
 def load_ner_data(file_path: str) -> Tuple[List[List[str]], List[List[str]]]:
     """
@@ -125,6 +126,10 @@ def evaluate_model(model: nn.Module,
 
 
 def main():
+    """
+    This function is the main program for training.
+    """
+    
     set_seed(42)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
@@ -132,6 +137,7 @@ def main():
     embedding_model = fasttext.load_model("cc.en.300.bin")
     
     print("Loading Conll2003...")
+    load_data()
     train_tokens, train_ner_tags = load_ner_data("data/conll2003_train.csv")
     validation_tokens, validation_ner_tags = load_ner_data("data/conll2003_validation.csv")  
 
