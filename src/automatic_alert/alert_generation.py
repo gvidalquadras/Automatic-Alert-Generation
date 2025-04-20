@@ -2,7 +2,6 @@ import torch.nn.functional as F
 import pandas as pd
 from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModelForSequenceClassification
 import torch
-from src.utils import clean_tokens
 import spacy
 from src.ner.ner import NERModel
 from src.sa.SA import SentimentClassifier
@@ -10,7 +9,7 @@ import fasttext
 from torch.nn.utils.rnn import pad_sequence
 from typing import List
 import predict_ner 
-# import predict_sa
+import predict_sa
 
 device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 
@@ -29,8 +28,11 @@ ner_model = NERModel(embedding_model=ft_model, hidden_dim=256, num_classes=9).to
 ner_model.load_state_dict(torch.load("models/ner_model.pth", map_location=device))
 
 # Sentiment analysis model
-# sa_model = torch.jit.load("models/SA_model.pt", map_location=device)
-
+# Instanciar el modelo y cargar el state_dict
+sa_model = SentimentClassifier()
+sa_model.load_state_dict(torch.load("models/SA_model.pth", map_location=device))
+sa_model.to(device)
+sa_model.eval()
 
 # predefined labels for this topic model (they aren't used)
 labels = [
@@ -96,7 +98,6 @@ def extract_ner_entity(ner_tags):
             break  # Stop if we found a valid entity
 
     entity = " ".join(entity_words)
-    print(entity)
     return entity
 
 def extract_svo(tweet, ner_tags):
@@ -113,27 +114,29 @@ def extract_svo(tweet, ner_tags):
     
     # Process the tweet with spaCy
     doc = nlp(tweet)
-    
-    sujeto = ner_entity.split()[0]
-    verbo = None
-    objeto = None
-    
-    # Iterate through tokens to find SVO
-    # Identify subject
-    for token in doc:
-        if token.text == ner_entity:
-            sujeto = ner_entity
+
+    if ner_entity: 
+        sujeto = ner_entity.split()[0]
+        verbo = None
+        objeto = None
         
-        # Identify verb
-        if token.pos_ == "VERB" and sujeto:
-            verbo = token.text
-        
-        # Identify object
-        if token.dep_ in ("obj", "dobj", "obl", "iobj") and verbo:
-            objeto = token.text
-            break  
-        
-    return ner_entity, verbo, objeto
+        # Iterate through tokens to find SVO
+        # Identify subject
+        for token in doc:
+            if token.text == ner_entity:
+                sujeto = ner_entity
+            
+            # Identify verb
+            if token.pos_ == "VERB" and sujeto:
+                verbo = token.text
+            
+            # Identify object
+            if token.dep_ in ("obj", "dobj", "obl", "iobj") and verbo:
+                objeto = token.text
+                break  
+            
+        return ner_entity, verbo, objeto
+    return None, None, None
 
 def generate_alert(tweet): 
     """
@@ -149,23 +152,26 @@ def generate_alert(tweet):
     # Extract NER tags
     tokens = tweet.split()
     ner_tags = predict_ner.predict_ner(ner_model, tokens, device, ft_model, predict_ner.idx2label)
+    print(ner_tags)
 
     # Extract sentiment
-    # sentiment_label, sentiment_prob = predict_sa.predict_sa(tweet, sa_model, ft_model, device)
+    sentiment_label, sentiment_prob = predict_sa.predict_sa(tweet, sa_model, ft_model, device)
     
     # Extract SVO
     subject, verb, obj = extract_svo(tweet, ner_tags)
     
     # Generate alert message
-    # sentiment = "Good" if sentiment_label == 1 else "Bad"
-    alert_message = f"sentiment news about {topic}: {subject} {verb} {obj}."
+    sentiment = "Good" if sentiment_label == 1 else "Bad"
+    alert_message = f"{sentiment} news about {topic}"
+    if subject: 
+        alert_message += f": {subject} {verb} {obj}."
 
     
     return alert_message
 
 if __name__ == "__main__":
     # Example tweet
-    tweet = "Apple has realeased a new phone it is so so so great I love it"
+    tweet = "Taylor Swift canceled her concert in London."
     
     # Generate alert
     alert = generate_alert(tweet)
@@ -173,5 +179,7 @@ if __name__ == "__main__":
     print(tweet)
     print("Generated Alert:")
     print(alert)
+
+
 
 
