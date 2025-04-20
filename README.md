@@ -45,6 +45,14 @@ python -m src.sa.train_SA
 
 This commands will automatically download the data.
 
+You can also evaluate the models by running: 
+```
+python -m src.ner.evaluate
+```
+```
+python -m src.sa.evaluate
+```
+
 ## Generating Alerts from New Input
 To generate alerts from custom input:
 
@@ -71,7 +79,7 @@ Taylor Swift canceled her concert in Paris.
 (Taylor, B-PER), (Swift, I-PER), (canceled, O), (her, O), (concert, O), (in, O), (Paris, B-LOC)
 
 #### Sentiment:
-Negative
+Negative 
 
 #### Generated Alert:
 Bad news about Music: Taylor Swift canceled concert.
