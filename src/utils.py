@@ -32,3 +32,35 @@ def set_seed(seed: int) -> None:
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
     return None
+
+def clean_tokens(tokens):
+    """
+    Cleans the input tokens by removing unwanted characters and splitting them into a list. 
+    It also merges tokens that are 's or n't with the previous token.
+    Args:
+        tokens (str): in the format '['token' 'token' 'token']'.
+    Returns:
+        list: A list of cleaned tokens.
+    """
+    if isinstance(tokens, str):
+        # Remove unwanted characters and split tokens by commas
+        tokens = tokens.replace("[", "").replace("]", "").replace("'", "").split(",")
+        # Strip extra spaces and filter out empty strings
+        tokens = [t.strip() for t in tokens if t.strip()]
+
+        # Create a list to store the cleaned tokens
+        cleaned_tokens = []
+        
+        # Regex to capture tokens that end in 's or n't
+        for i, token in enumerate(tokens):
+            # If the token is 's or n't and not the first word, merge with the previous token
+            if token in ["n't", "'s"]:
+                # Merge 'n't or 's with the previous token
+                if cleaned_tokens:
+                    cleaned_tokens[-1] += token
+                continue
+            else:
+                cleaned_tokens.append(token)
+
+        # Join the tokens into a single string
+        return " ".join(cleaned_tokens)
